@@ -4,28 +4,26 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 const cloudinary = require("cloudinary").v2;
 const morgan = require("morgan");
-
+// Express app
 const app = express();
 app.use(morgan("dev"));
-
-app.use(express.json());
+// Middleware
+app.use(express.json()); // Allows parsing JSON body
 app.use(cors());
 
 mongoose
-  .connect(
-    "mongodb+srv://hunny:hunny442917@cluster0.je4hs.mongodb.net/Argogyalatest2",
-    {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    }
-  )
+  .connect(process.env.MONGO_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  })
   .then(() => console.log("MongoDB Connected"))
   .catch((err) => console.log(err));
 
+// Configure Cloudinary
 cloudinary.config({
-  cloud_name: "dqqwrgmo9",
-  api_key: "179142844963948",
-  api_secret: "Q_PcXWQLar55XCUTMXuR-S-sQwA",
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
 const ProblemSchema = new mongoose.Schema({
@@ -75,6 +73,7 @@ app.post("/submit", async (req, res) => {
       typeof problem_list === "string"
         ? JSON.parse(problem_list)
         : problem_list;
+
     if (!Array.isArray(problemsArray)) {
       return res.status(400).json({
         success: false,
@@ -91,6 +90,7 @@ app.post("/submit", async (req, res) => {
       problem_list: problemsArray,
       image,
     });
+
     await newForm.save();
 
     res.status(201).json({
@@ -115,11 +115,13 @@ app.put("/medical-forms/:id", async (req, res) => {
       req.body,
       { new: true, runValidators: true }
     );
+
     if (!updatedForm) {
       return res
         .status(404)
         .json({ success: false, message: "Medical form not found" });
     }
+
     res.status(200).json({
       success: true,
       message: "Medical form updated successfully",
@@ -138,11 +140,13 @@ app.put("/medical-forms/:id", async (req, res) => {
 app.delete("/medical-forms/:id", async (req, res) => {
   try {
     const deletedForm = await MedicalForm.findByIdAndDelete(req.params.id);
+
     if (!deletedForm) {
       return res
         .status(404)
         .json({ success: false, message: "Medical form not found" });
     }
+
     res
       .status(200)
       .json({ success: true, message: "Medical form deleted successfully" });
