@@ -4,14 +4,13 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 const cloudinary = require("cloudinary").v2;
 const morgan = require("morgan");
-// Express app
+
 const app = express();
 app.use(morgan("dev"));
-// Middleware
-app.use(express.json()); // Allows parsing JSON body
+
+app.use(express.json());
 app.use(cors());
 
-// Connect to MongoDB Atlas
 mongoose
   .connect(
     "mongodb+srv://hunny:hunny442917@cluster0.je4hs.mongodb.net/Argogyalatest2",
@@ -29,13 +28,11 @@ cloudinary.config({
   api_secret: "Q_PcXWQLar55XCUTMXuR-S-sQwA",
 });
 
-// Define Problem Schema
 const ProblemSchema = new mongoose.Schema({
   title: { type: String, required: true },
   description: { type: String, required: true },
 });
 
-// Define Medical Form Schema
 const MedicalFormSchema = new mongoose.Schema(
   {
     recordType: { type: String, required: true },
@@ -51,7 +48,7 @@ const MedicalFormSchema = new mongoose.Schema(
 
 const MedicalForm = mongoose.model("MedicalForm", MedicalFormSchema);
 
-// Get all medical forms
+//Get all data
 app.get("/medical-forms", async (req, res) => {
   try {
     const forms = await MedicalForm.find();
@@ -61,7 +58,7 @@ app.get("/medical-forms", async (req, res) => {
   }
 });
 
-// Submit a new medical form
+//Post data
 app.post("/submit", async (req, res) => {
   try {
     const {
@@ -158,7 +155,6 @@ app.delete("/medical-forms/:id", async (req, res) => {
   }
 });
 
-// Start server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
