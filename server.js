@@ -3,28 +3,52 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const cloudinary = require("cloudinary").v2;
+const multer = require("multer");
+const { CloudinaryStorage } = require("multer-storage-cloudinary");
 const morgan = require("morgan");
-// Express app
+
 const app = express();
 app.use(morgan("dev"));
-// Middleware
-app.use(express.json()); // Allows parsing JSON body
+app.use(express.json());
 app.use(cors());
 
 mongoose
-  .connect(process.env.MONGO_URI, {
+  .connect(MONGO_URI, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
   })
   .then(() => console.log("MongoDB Connected"))
   .catch((err) => console.log(err));
 
-// Configure Cloudinary
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
+
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: "medical-forms",
+    format: async (req, file) => {
+      const allowedFormats = [
+        "jpg",
+        "jpeg",
+        "png",
+        "webp",
+        "gif",
+        "bmp",
+        "tiff",
+      ];
+      const fileExtension = file.mimetype.split("/")[1]; // Extract file format from mimetype
+
+      return allowedFormats.includes(fileExtension) ? fileExtension : "png"; // Default to PNG if not allowed
+    },
+    public_id: (req, file) => file.originalname.split(".")[0],
+  },
+});
+
+const upload = multer({ storage: storage });
 
 const ProblemSchema = new mongoose.Schema({
   title: { type: String, required: true },
@@ -46,7 +70,6 @@ const MedicalFormSchema = new mongoose.Schema(
 
 const MedicalForm = mongoose.model("MedicalForm", MedicalFormSchema);
 
-//Get all data
 app.get("/medical-forms", async (req, res) => {
   try {
     const forms = await MedicalForm.find();
@@ -56,30 +79,11 @@ app.get("/medical-forms", async (req, res) => {
   }
 });
 
-//Post data
-app.post("/submit", async (req, res) => {
+app.post("/submit", upload.single("image"), async (req, res) => {
   try {
-    const {
-      recordType,
-      title,
-      doctor,
-      hospital,
-      location,
-      problem_list,
-      image,
-    } = req.body;
-
-    const problemsArray =
-      typeof problem_list === "string"
-        ? JSON.parse(problem_list)
-        : problem_list;
-
-    if (!Array.isArray(problemsArray)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid problem_list format. Must be an array.",
-      });
-    }
+    const { recordType, title, doctor, hospital, location, problem_list } =
+      req.body;
+    const problemsArray = JSON.parse(problem_list || "[]");
 
     const newForm = new MedicalForm({
       recordType,
@@ -88,11 +92,10 @@ app.post("/submit", async (req, res) => {
       hospital,
       location,
       problem_list: problemsArray,
-      image,
+      image: req.file ? req.file.path : null,
     });
 
     await newForm.save();
-
     res.status(201).json({
       success: true,
       message: "Medical form created successfully",
@@ -107,20 +110,38 @@ app.post("/submit", async (req, res) => {
   }
 });
 
-// Update a medical form
-app.put("/medical-forms/:id", async (req, res) => {
+app.put("/medical-forms/:id", upload.single("image"), async (req, res) => {
   try {
-    const updatedForm = await MedicalForm.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true, runValidators: true }
-    );
+    const { recordType, title, doctor, hospital, location, problem_list } =
+      req.body;
+    const form = await MedicalForm.findById(req.params.id);
 
-    if (!updatedForm) {
+    if (!form) {
       return res
         .status(404)
         .json({ success: false, message: "Medical form not found" });
     }
+
+    // Delete previous image from Cloudinary if a new one is uploaded
+    if (req.file && form.image) {
+      const publicId = form.image.split("/").slice(-2).join("/").split(".")[0];
+      await cloudinary.uploader.destroy(`medical-forms/${publicId}`);
+    }
+
+    // Update form data
+    const updatedForm = await MedicalForm.findByIdAndUpdate(
+      req.params.id,
+      {
+        recordType,
+        title,
+        doctor,
+        hospital,
+        location,
+        problem_list: JSON.parse(problem_list),
+        image: req.file ? req.file.path : form.image, // Update image only if a new one is uploaded
+      },
+      { new: true, runValidators: true }
+    );
 
     res.status(200).json({
       success: true,
@@ -131,29 +152,6 @@ app.put("/medical-forms/:id", async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error updating medical form",
-      error: error.message,
-    });
-  }
-});
-
-// Delete a medical form
-app.delete("/medical-forms/:id", async (req, res) => {
-  try {
-    const deletedForm = await MedicalForm.findByIdAndDelete(req.params.id);
-
-    if (!deletedForm) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Medical form not found" });
-    }
-
-    res
-      .status(200)
-      .json({ success: true, message: "Medical form deleted successfully" });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Error deleting medical form",
       error: error.message,
     });
   }
