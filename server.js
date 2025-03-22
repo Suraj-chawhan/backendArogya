@@ -77,23 +77,17 @@ app.get("/medical-forms", async (req, res) => {
     res.status(500).json({ message: "Server error", error });
   }
 });
+
 app.post("/submit", upload.single("image"), async (req, res) => {
   try {
     const { recordType, title, doctor, hospital, location, problem_list } =
       req.body;
-
     const problemsArray =
       typeof problem_list === "string"
         ? JSON.parse(problem_list)
         : problem_list;
 
-    // Check if file was uploaded
-    if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        message: "Image upload failed or missing",
-      });
-    }
+    console.log(req.file.path);
 
     const newForm = new MedicalForm({
       recordType,
@@ -102,20 +96,17 @@ app.post("/submit", upload.single("image"), async (req, res) => {
       hospital,
       location,
       problem_list: problemsArray,
-      image: req.file.path, // Get uploaded image URL
+      image: req.file ? req.file.path : "", // Use Cloudinary URL
     });
 
     await newForm.save();
-
-    res.status(201).json({
-      success: true,
-      message: "Medical form created successfully",
-      data: newForm,
-    });
+    res
+      .status(201)
+      .json({ success: true, message: "Medical form created", data: newForm });
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: "Error creating medical form",
+      message: "Error creating form",
       error: error.message,
     });
   }
@@ -125,6 +116,8 @@ app.put("/medical-forms/:id", upload.single("image"), async (req, res) => {
   try {
     const { recordType, title, doctor, hospital, location, problem_list } =
       req.body;
+
+    console.log(req.body);
 
     const problemsArray =
       typeof problem_list === "string"
