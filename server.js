@@ -87,13 +87,6 @@ app.post("/submit", upload.single("image"), async (req, res) => {
         ? JSON.parse(problem_list)
         : problem_list;
 
-    if (!Array.isArray(problemsArray)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid problem_list format. Must be an array.",
-      });
-    }
-
     // Check if file was uploaded
     if (!req.file) {
       return res.status(400).json({
