@@ -77,19 +77,10 @@ app.get("/medical-forms", async (req, res) => {
     res.status(500).json({ message: "Server error", error });
   }
 });
-
-//Post data
-app.post("/submit", async (req, res) => {
+app.post("/submit", upload.single("image"), async (req, res) => {
   try {
-    const {
-      recordType,
-      title,
-      doctor,
-      hospital,
-      location,
-      problem_list,
-      image,
-    } = req.body;
+    const { recordType, title, doctor, hospital, location, problem_list } =
+      req.body;
 
     const problemsArray =
       typeof problem_list === "string"
@@ -103,6 +94,14 @@ app.post("/submit", async (req, res) => {
       });
     }
 
+    // Check if file was uploaded
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "Image upload failed or missing",
+      });
+    }
+
     const newForm = new MedicalForm({
       recordType,
       title,
@@ -110,7 +109,7 @@ app.post("/submit", async (req, res) => {
       hospital,
       location,
       problem_list: problemsArray,
-      image,
+      image: req.file.path, // Get uploaded image URL
     });
 
     await newForm.save();
