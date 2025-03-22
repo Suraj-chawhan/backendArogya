@@ -127,6 +127,7 @@ app.put("/medical-forms/:id", upload.single("image"), async (req, res) => {
     const form = await MedicalForm.findById(req.params.id);
 
     if (!form) {
+      console.log(`Medical form with ID ${req.params.id} not found.`);
       return res
         .status(404)
         .json({ success: false, message: "Medical form not found" });
@@ -134,8 +135,12 @@ app.put("/medical-forms/:id", upload.single("image"), async (req, res) => {
 
     if (req.file && form.image) {
       try {
-        const publicId = form.image.split("/").pop().split(".")[0];
-        await cloudinary.uploader.destroy(`medical-forms/${publicId}`);
+        const imagePath = form.image;
+        if (imagePath.includes("/upload/")) {
+          const publicId = imagePath.split("/upload/")[1].split(".")[0];
+          await cloudinary.uploader.destroy(publicId);
+          console.log(`Deleted old image: ${publicId}`);
+        }
       } catch (err) {
         console.error("Failed to delete old image:", err);
       }
@@ -151,7 +156,7 @@ app.put("/medical-forms/:id", upload.single("image"), async (req, res) => {
         hospital,
         location,
         problem_list: problemsArray,
-        image: req.file ? req.file.path : form.image, // Update image only if a new one is uploaded
+        image: req.file ? req.file.path : "", // Update image only if a new one is uploaded
       },
       { new: true, runValidators: true }
     );
